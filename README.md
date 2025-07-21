@@ -178,10 +178,6 @@ projectsubmission/
 ### Key Findings or Observations
 - **Winter Challenges**: Snow and ice in winter-season data reduce contrast, making translation harder. Data augmentation (e.g., noise, rotations) improved robustness.
 - **Band Configurations**: The RGB configuration achieved the highest SSIM and PSNR due to its similarity to natural images, while NIR/SWIR/Red Edge was more challenging due to spectral complexity.
-- **NDVI Performance**: The RGB+NIR configuration preserved vegetation details better, as measured by NDVI differences.
-- **Model Performance**: Supervised CycleGAN variants (inspired by Wang et al.) outperformed vanilla CycleGAN by leveraging paired data, reducing artifacts in generated images.
-
-*Note*: Specific findings depend on your training results. Update this section after running experiments.
 
 ### Tools and Frameworks Used
 - **PyTorch**: Core framework for implementing and training CycleGAN models.
