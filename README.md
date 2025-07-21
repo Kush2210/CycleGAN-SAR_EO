@@ -48,6 +48,7 @@ The goal of this project is to develop a CycleGAN model that translates Sentinel
 This implementation is inspired by research papers like "SAR-to-optical Image Translation using Supervised Cycle-Consistent Adversarial Networks" (Wang et al., 2019) and repositories like [yuuIind/SAR2Optical](https://github.com/yuuIind/SAR2Optical).
 
 ## Instructions to Run Code (Our self-made Architecture)
+* For ease for running we have already including a sample of dataset in data folder, so to check the repo you dont have to download the dataset
 
 ### Prerequisites
 - Python 3.8+
