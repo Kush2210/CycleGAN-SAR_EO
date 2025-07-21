@@ -8,7 +8,7 @@ This repository implements a CycleGAN model to translate Synthetic Aperture Rada
 
 
 ### ✅ Dual Implementation Approach:
-We implemented the project using **two sperate solutions**:
+We implemented the project using **two seperate solutions**:
 1. ✍️ **Custom CycleGAN**: Designed and implemented our own CycleGAN architecture from scratch in PyTorch.
 2. 📦 **Baseline Codebase**: Used the official [CycleGAN & Pix2Pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) implementation as a strong and reliable reference.
 
