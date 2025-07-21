@@ -168,6 +168,11 @@ projectsubmission/
     (Batch size of 6 uses approx 13.9 GB GPU - Set batch size accordingly)
 
 
+![Sample Results](assets/sample results.png)
+![Sample Results](assets/sample results 2.png)
+![Cloud Mask](assets/cloud mask.png)
+![Loss ](assets/loss.png)
+
 ### Key Findings or Observations
 - **Winter Challenges**: Snow and ice in winter-season data reduce contrast, making translation harder. Data augmentation (e.g., noise, rotations) improved robustness.
 - **Band Configurations**: The RGB configuration achieved the highest SSIM and PSNR due to its similarity to natural images, while NIR/SWIR/Red Edge was more challenging due to spectral complexity.
