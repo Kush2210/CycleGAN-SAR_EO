@@ -6,11 +6,18 @@ This repository implements a CycleGAN model to translate Synthetic Aperture Rada
 - Kush Garg, kushgarg_23mc079@dtu.ac.in 
 - Saksham Jain, sakshamjain_23me234@dtu.ac.in
 
-## Cycle Gan
+
+### ✅ Dual Implementation Approach:
+We implemented the project using **two approaches**:
+1. ✍️ **Custom CycleGAN**: Designed and implemented our own CycleGAN architecture from scratch in PyTorch.
+2. 📦 **Baseline Codebase**: Used the official [CycleGAN & Pix2Pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) implementation as a strong and reliable reference.
+
+
+## We explored multiple solutions
 Model options: CycleGAN, Supervised CycleGAN, Pix2Pix (Supervised GAN), Pix2PixHD, Multi-Conditional GANs,Seg-CycleGAN, U-Net-Based Models
 
 Considering which models, and why:
-- CycleGan : SAR and EO images are unpaired modalities (especially in Sen12MS), making CycleGAN the natural choice due to its unpaired image-to-image translation architecture using cycle consistency.
+- CycleGan : SAR and EO images are unpaired modalities (although slightly paired in Sen12MS), making CycleGAN the natural choice due to its unpaired image-to-image translation architecture using cycle consistency.
 
 - # SAR-to-EO Image Translation: Model Selection Summary
 
@@ -24,12 +31,6 @@ Considering which models, and why:
 - **Multi-Conditional GANs**: Useful when *multiple SAR bands, temporal inputs, or metadata* are used as input.
 - **Seg-CycleGAN**: Incorporates *semantic segmentation maps* to improve semantic consistency in translation.
 - **U-Net**: Can be used to remove clouds/snow caps in winter dataset.
-
-
-## 📂 Dataset: Sen12MS
-
-- The **Sen12MS dataset** provides **paired and co-registered** Sentinel-1 SAR and Sentinel-2 EO image patches.
-- This allows the use of **supervised learning models** since pixel-wise alignment is available.
 
 ---
 
@@ -46,7 +47,7 @@ The goal of this project is to develop a CycleGAN model that translates Sentinel
 
 This implementation is inspired by research papers like "SAR-to-optical Image Translation using Supervised Cycle-Consistent Adversarial Networks" (Wang et al., 2019) and repositories like [yuuIind/SAR2Optical](https://github.com/yuuIind/SAR2Optical).
 
-## Instructions to Run Code
+## Instructions to Run Code (Our self-made Architecture)
 
 ### Prerequisites
 - Python 3.8+
@@ -57,7 +58,7 @@ This implementation is inspired by research papers like "SAR-to-optical Image Tr
 ### Setup
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/[your-username]/sar-to-eo-cyclegan.git
+   git clone https://github.com/Kush2210/sar-to-eo-cyclegan.git
    cd sar-to-eo-cyclegan
    ```
 
@@ -97,14 +98,20 @@ This implementation is inspired by research papers like "SAR-to-optical Image Tr
 
 ### Directory Structure
 ```
-sar-to-eo-cyclegan/
-├── data/                    # Raw and processed Sen12MS data
-├── results/                 # Trained models and evaluation outputs
-├── preprocess.py            # Script for data preprocessing
-├── train.py                 # Script for training CycleGAN models
-├── evaluate.py              # Script for evaluation and visualization
-├── requirements.txt         # Dependencies
-└── README.md
+projectsubmission/
+│
+├── Project1_SAR_to_EO/
+│   ├── data/                   # Contains trainA (SAR) and trainB (EO) image folders
+│   │   ├── trainA/             # SAR images (input domain A)
+│   │   └── trainB/             # EO images (input domain B)
+│   ├── generated_samples/      # Generated EO images, cloud masks, and metric plots
+│   ├── preprocess.py           # Data preprocessing and normalization script
+│   ├── train_cycleGAN.py       # CycleGAN training script (with loss tracking and sample generation)
+│   ├── evaluate_results.py     # Evaluation script (metrics, plots, and sample generation)
+│   └── README.md               # Project-specific documentation
+│
+├── requirements.txt            # Python dependencies for the project
+└── README.md                   # Top-level project overview and instructions
 ```
 
 ## Description
@@ -112,12 +119,11 @@ sar-to-eo-cyclegan/
 ### Data Preprocessing Steps
 1. **Dataset Loading**: Load Sentinel-1 SAR (VV, VH polarizations) and Sentinel-2 EO (B2, B3, B4, B5, B8, B11 bands) images from Sen12MS winter-season data using utilities inspired by [schmitt-muc/SEN12MS](https://github.com/schmitt-muc/SEN12MS).
 2. **Normalization**: Scale pixel values to [-1, 1] using min-max normalization to ensure compatibility with CycleGAN’s architecture.
-3. **Data Augmentation**: Apply random rotations, flips, and noise to address winter-specific challenges (e.g., snow cover, low contrast).
 4. **Band Selection**: Extract specific bands for each configuration:
    - RGB: B4, B3, B2
    - NIR/SWIR/Red Edge: B8, B11, B5
    - RGB + NIR: B4, B3, B2, B8
-5. **Data Pairing**: Align SAR and EO patches spatially using georeferenced metadata.
+
 
 ### Models Used
 - **CycleGAN**: Adapted from [yuuIind/SAR2Optical](https://github.com/yuucoin/SAR2Optical) and [junyanz/pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix).
@@ -150,6 +156,3 @@ sar-to-eo-cyclegan/
   - [yuuIind/SAR2Optical](https://github.com/yuuIind/SAR2Optical)  
   - [junyanz/pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)  
   - [schmitt-muc/SEN12MS](https://github.com/schmitt-muc/SEN12MS)
-
-## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
