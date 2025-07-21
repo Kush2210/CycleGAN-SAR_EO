@@ -167,6 +167,7 @@ projectsubmission/
      (Change path of your dataset folder accodingly)
     (Batch size of 6 uses approx 13.9 GB GPU - Set batch size accordingly)
 
+## We were also not able to train the model properly, due to lack of compute
 
 ![Sample Results](assets/sample%20results.png)
 ![Sample Results 2](assets/sample%20results%202.png)
