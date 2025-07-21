@@ -121,23 +121,67 @@ class ImagePool:
 # --- Dataset Loader ---
 class SAR2EODataset(Dataset):
     def __init__(self, root, config, max_samples=None):
-        self.sar_dir = os.path.join(root, config, 'sar')
-        self.eo_dir = os.path.join(root, config, 'eo')
-        self.files = sorted(os.listdir(self.sar_dir))
+        # Support both the original structure and trainA/trainB
+        sar_dir = os.path.join(root, config, 'sar')
+        eo_dir = os.path.join(root, config, 'eo')
+        if os.path.exists(sar_dir) and os.path.exists(eo_dir):
+            self.sar_dir = sar_dir
+            self.eo_dir = eo_dir
+            self.sar_files = sorted(os.listdir(self.sar_dir))
+            self.eo_files = sorted(os.listdir(self.eo_dir))
+        else:
+            # Fallback to trainA/trainB
+            self.sar_dir = os.path.join(root, 'trainA')
+            self.eo_dir = os.path.join(root, 'trainB')
+            self.sar_files = sorted(os.listdir(self.sar_dir))
+            self.eo_files = sorted(os.listdir(self.eo_dir))
+        # Pair by filename if possible, else by index
+        if len(self.sar_files) != len(self.eo_files):
+            print(f"Warning: trainA and trainB have different number of files ({len(self.sar_files)} vs {len(self.eo_files)}). Pairing by index.")
+            self.pairs = list(zip(self.sar_files, self.eo_files))
+        else:
+            # Try to pair by filename
+            pairs = []
+            eo_set = set(self.eo_files)
+            for sar_file in self.sar_files:
+                if sar_file in eo_set:
+                    pairs.append((sar_file, sar_file))
+                else:
+                    pairs.append((sar_file, None))
+            # If any None, fallback to index pairing
+            if any(eo is None for _, eo in pairs):
+                print("Warning: Not all SAR filenames match EO filenames. Pairing by sorted order.")
+                self.pairs = list(zip(self.sar_files, self.eo_files))
+            else:
+                self.pairs = pairs
         if max_samples:
-            self.files = self.files[:max_samples]
+            self.pairs = self.pairs[:max_samples]
     def __len__(self):
-        return len(self.files)
+        return len(self.pairs)
     def __getitem__(self, idx):
-        sar_path = os.path.join(self.sar_dir, self.files[idx])
-        eo_path = os.path.join(self.eo_dir, self.files[idx])
-        # --- Support both .npy and .jpg/jpeg inputs ---
+        sar_file, eo_file = self.pairs[idx]
+        sar_path = os.path.join(self.sar_dir, sar_file)
+        if eo_file is not None:
+            eo_path = os.path.join(self.eo_dir, eo_file)
+        else:
+            raise FileNotFoundError(f"No matching EO file for SAR file {sar_file}")
+        # --- SAR robust 2-channel loading ---
         if sar_path.endswith('.npy'):
             sar = np.load(sar_path)
         elif sar_path.lower().endswith(('.jpg', '.jpeg')):
-            sar = np.array(Image.open(sar_path).convert('RGB'))
+            sar_img = Image.open(sar_path)
+            sar = np.array(sar_img)
+            if sar.ndim == 3:
+                # If RGB, use only first two channels
+                sar = sar[..., :2]
+            elif sar.ndim == 2:
+                # If grayscale, duplicate to make 2 channels
+                sar = np.stack([sar, sar], axis=-1)
+            else:
+                raise ValueError(f'Unexpected SAR image shape: {sar.shape}')
         else:
             raise ValueError(f'Unsupported SAR file type: {sar_path}')
+        # --- EO loading (as before) ---
         if eo_path.endswith('.npy'):
             eo = np.load(eo_path)
         elif eo_path.lower().endswith(('.jpg', '.jpeg')):
@@ -146,7 +190,7 @@ class SAR2EODataset(Dataset):
             raise ValueError(f'Unsupported EO file type: {eo_path}')
         # --- Convert to torch tensor and normalize ---
         if sar.ndim == 2:
-            sar = sar[..., None]  # Add channel dim if grayscale
+            sar = sar[..., None]  # Add channel dim if grayscale (should not happen now)
         if eo.ndim == 2:
             eo = eo[..., None]
         sar = torch.from_numpy(sar).permute(2,0,1).float()
@@ -240,8 +284,8 @@ def main():
             cyc_x = l1(F(G(sar)), sar)
             cyc_y = l1(G(F(eo)), eo)
             # Identity
-            idt_x = l1(F(sar), sar)
-            idt_y = l1(G(eo), eo)
+            idt_x = l1(F(eo), sar)  # EO->SAR, compare to SAR
+            idt_y = l1(G(sar), eo)  # SAR->EO, compare to EO
             g_loss = adv_y + adv_x + 10*(cyc_x + cyc_y) + 5*(idt_x + idt_y)
             g_loss.backward()
             g_opt.step()
