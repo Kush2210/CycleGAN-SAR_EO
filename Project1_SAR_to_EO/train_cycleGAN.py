@@ -18,6 +18,7 @@ from torchvision.utils import save_image, make_grid
 from tqdm import tqdm
 import random
 from PIL import Image
+import matplotlib.pyplot as plt
 
 # --- CycleGAN Model Components ---
 # (Simple ResNet-based generator and PatchGAN discriminator)
@@ -254,6 +255,8 @@ def main():
     # Labels
     real_label = 1.0
     fake_label = 0.0
+    # Loss tracking lists
+    g_losses, d_x_losses, d_y_losses = [], [], []
     # Training
     for epoch in range(args.epochs):
         for i, (sar, eo) in enumerate(tqdm(loader, desc=f'Epoch {epoch+1}/{args.epochs}')):
@@ -261,8 +264,8 @@ def main():
             # --- Train Discriminators ---
             # D_Y (EO)
             D_Y.zero_grad()
-            out_real = D_Y(eo)
             fake_eo = G(sar)
+            out_real = D_Y(eo)
             out_fake = D_Y(fake_Y_pool.query(fake_eo.detach()))
             d_y_loss = 0.5 * (mse(out_real, torch.ones_like(out_real)) + mse(out_fake, torch.zeros_like(out_fake)))
             d_y_loss.backward()
@@ -292,6 +295,10 @@ def main():
             # --- Logging & Visualization ---
             if i % 100 == 0:
                 print(f'Epoch {epoch+1} [{i}/{len(loader)}] D_Y: {d_y_loss.item():.3f} D_X: {d_x_loss.item():.3f} G: {g_loss.item():.3f}')
+            # Track losses
+            g_losses.append(g_loss.item())
+            d_x_losses.append(d_x_loss.item())
+            d_y_losses.append(d_y_loss.item())
         # Save samples and checkpoints
         save_samples(G, loader, device, os.path.join(args.out_dir, args.config), epoch)
         torch.save(G.state_dict(), os.path.join(args.out_dir, f'G_{args.config}_epoch{epoch+1}.pth'))
@@ -300,6 +307,18 @@ def main():
         d_x_scheduler.step()
         d_y_scheduler.step()
     print('Training complete.')
+    # --- Plot and save loss curves ---
+    plt.figure(figsize=(10,6))
+    plt.plot(g_losses, label='Generator Loss')
+    plt.plot(d_x_losses, label='Discriminator X Loss')
+    plt.plot(d_y_losses, label='Discriminator Y Loss')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.title('Training Loss Curves')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.out_dir, 'loss_curves.png'))
+    plt.close()
 
 if __name__ == '__main__':
     main() 

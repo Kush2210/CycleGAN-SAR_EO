@@ -14,6 +14,11 @@ from skimage.metrics import structural_similarity as ssim, peak_signal_noise_rat
 from skimage import img_as_ubyte
 from torchvision.utils import save_image, make_grid
 import matplotlib.pyplot as plt
+try:
+    from torchmetrics.image.fid import FrechetInceptionDistance
+    FID_AVAILABLE = True
+except ImportError:
+    FID_AVAILABLE = False
 from tqdm import tqdm
 
 # --- Import Generator and Dataset from train script ---
@@ -48,8 +53,14 @@ def evaluate(args):
     loader = DataLoader(dataset, batch_size=1, shuffle=False)
     # Metrics
     ssim_list, psnr_list, ndvi_list, f1_list, iou_list = [], [], [], [], []
+    fid_scores = []
     os.makedirs(args.out_dir, exist_ok=True)
     sample_count, cloud_count = 0, 0
+    # FID setup
+    if FID_AVAILABLE:
+        fid_metric = FrechetInceptionDistance(feature=64).to(device)
+    else:
+        print('Warning: torchmetrics not installed, FID will not be computed.')
     for i, (sar, eo) in enumerate(tqdm(loader, desc='Evaluating')):
         sar, eo = sar.to(device), eo.to(device)
         with torch.no_grad():
@@ -64,6 +75,13 @@ def evaluate(args):
         ndvi_fake = compute_ndvi(fake_eo)
         if ndvi_fake is not None:
             ndvi_list.append(np.mean(ndvi_fake))
+        # FID (if available)
+        if FID_AVAILABLE:
+            # FID expects uint8 [0,255], 3-channel, BCHW
+            fake_eo_fid = np.clip((fake_eo[:3] + 1) * 127.5, 0, 255).astype(np.uint8)
+            real_eo_fid = np.clip((real_eo[:3] + 1) * 127.5, 0, 255).astype(np.uint8)
+            fid_metric.update(torch.from_numpy(fake_eo_fid).unsqueeze(0), real=False)
+            fid_metric.update(torch.from_numpy(real_eo_fid).unsqueeze(0), real=True)
         # Save 5 samples
         if sample_count < 5:
             grid = make_grid(torch.from_numpy(fake_eo).unsqueeze(0), nrow=eo_channels, normalize=True, value_range=(-1,1))
@@ -77,6 +95,13 @@ def evaluate(args):
         # F1/IoU (dummy, as we don't have GT cloud mask)
         f1_list.append(1.0)
         iou_list.append(1.0)
+    # FID final score
+    if FID_AVAILABLE:
+        fid_score = fid_metric.compute().item()
+        fid_scores = [fid_score] * len(ssim_list)
+        print(f"FID: {fid_score:.4f}")
+    else:
+        fid_scores = [0.0] * len(ssim_list)
     # Report
     print(f"Mean SSIM: {np.mean(ssim_list):.4f}")
     print(f"Mean PSNR: {np.mean(psnr_list):.2f}")
@@ -90,9 +115,28 @@ def evaluate(args):
         f.write(f"Mean PSNR: {np.mean(psnr_list):.2f}\n")
         if ndvi_list:
             f.write(f"Mean NDVI: {np.mean(ndvi_list):.4f}\n")
+        f.write(f"FID: {fid_scores[0]:.4f}\n")
         f.write(f"F1 (cloud mask, dummy): {np.mean(f1_list):.2f}\n")
         f.write(f"IoU (cloud mask, dummy): {np.mean(iou_list):.2f}\n")
-    print('Evaluation complete. Results saved in', args.out_dir)
+    # --- Plot and save metric distributions ---
+    def plot_metric(metric_list, name):
+        plt.figure(figsize=(8,5))
+        plt.hist(metric_list, bins=30, alpha=0.7, color='royalblue')
+        plt.xlabel(name)
+        plt.ylabel('Frequency')
+        plt.title(f'{name} Distribution')
+        plt.tight_layout()
+        plt.savefig(os.path.join(args.out_dir, f'{name.lower()}_hist.png'))
+        plt.close()
+    plot_metric(ssim_list, 'SSIM')
+    plot_metric(psnr_list, 'PSNR')
+    if ndvi_list:
+        plot_metric(ndvi_list, 'NDVI')
+    if FID_AVAILABLE:
+        plot_metric(fid_scores, 'FID')
+    plot_metric(f1_list, 'F1')
+    plot_metric(iou_list, 'IoU')
+    print('Evaluation complete. Results and plots saved in', args.out_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate CycleGAN SAR-to-EO outputs')
