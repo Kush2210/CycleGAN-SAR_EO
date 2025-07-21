@@ -16,6 +16,8 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision.utils import save_image, make_grid
 from tqdm import tqdm
+import random
+from PIL import Image
 
 # --- CycleGAN Model Components ---
 # (Simple ResNet-based generator and PatchGAN discriminator)
@@ -87,6 +89,35 @@ class Discriminator(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+# --- Normalization Utility ---
+def normalize_tensor(img):
+    # Assumes input is float32 or float64, range [0, 255] or [0, 1]
+    if img.max() > 1.1:
+        img = img / 127.5 - 1.0
+    return img
+
+# --- Image Pool for Discriminator Training (to reduce model oscillation) ---
+class ImagePool:
+    def __init__(self, pool_size=50):
+        self.pool_size = pool_size
+        self.images = []
+    def query(self, images):
+        return_images = []
+        for image in images:
+            image = image.unsqueeze(0)
+            if len(self.images) < self.pool_size:
+                self.images.append(image)
+                return_images.append(image)
+            else:
+                if random.random() > 0.5:
+                    idx = random.randint(0, self.pool_size - 1)
+                    tmp = self.images[idx].clone()
+                    self.images[idx] = image
+                    return_images.append(tmp)
+                else:
+                    return_images.append(image)
+        return torch.cat(return_images, 0)
+
 # --- Dataset Loader ---
 class SAR2EODataset(Dataset):
     def __init__(self, root, config, max_samples=None):
@@ -98,10 +129,30 @@ class SAR2EODataset(Dataset):
     def __len__(self):
         return len(self.files)
     def __getitem__(self, idx):
-        sar = np.load(os.path.join(self.sar_dir, self.files[idx]))
-        eo = np.load(os.path.join(self.eo_dir, self.files[idx]))
+        sar_path = os.path.join(self.sar_dir, self.files[idx])
+        eo_path = os.path.join(self.eo_dir, self.files[idx])
+        # --- Support both .npy and .jpg/jpeg inputs ---
+        if sar_path.endswith('.npy'):
+            sar = np.load(sar_path)
+        elif sar_path.lower().endswith(('.jpg', '.jpeg')):
+            sar = np.array(Image.open(sar_path).convert('RGB'))
+        else:
+            raise ValueError(f'Unsupported SAR file type: {sar_path}')
+        if eo_path.endswith('.npy'):
+            eo = np.load(eo_path)
+        elif eo_path.lower().endswith(('.jpg', '.jpeg')):
+            eo = np.array(Image.open(eo_path).convert('RGB'))
+        else:
+            raise ValueError(f'Unsupported EO file type: {eo_path}')
+        # --- Convert to torch tensor and normalize ---
+        if sar.ndim == 2:
+            sar = sar[..., None]  # Add channel dim if grayscale
+        if eo.ndim == 2:
+            eo = eo[..., None]
         sar = torch.from_numpy(sar).permute(2,0,1).float()
         eo = torch.from_numpy(eo).permute(2,0,1).float()
+        sar = normalize_tensor(sar)
+        eo = normalize_tensor(eo)
         return sar, eo
 
 # --- Training Utilities ---
@@ -148,6 +199,14 @@ def main():
     g_opt = optim.Adam(list(G.parameters())+list(F.parameters()), lr=args.lr, betas=(0.5,0.999))
     d_x_opt = optim.Adam(D_X.parameters(), lr=args.lr, betas=(0.5,0.999))
     d_y_opt = optim.Adam(D_Y.parameters(), lr=args.lr, betas=(0.5,0.999))
+    # Learning Rate Decay Schedulers
+    lr_lambda = lambda epoch: 1.0 - max(0, epoch + 1 - args.epochs//2) / float(args.epochs//2 + 1)
+    g_scheduler = optim.lr_scheduler.LambdaLR(g_opt, lr_lambda=lr_lambda)
+    d_x_scheduler = optim.lr_scheduler.LambdaLR(d_x_opt, lr_lambda=lr_lambda)
+    d_y_scheduler = optim.lr_scheduler.LambdaLR(d_y_opt, lr_lambda=lr_lambda)
+    # Image Pools
+    fake_X_pool = ImagePool(50)
+    fake_Y_pool = ImagePool(50)
     # Labels
     real_label = 1.0
     fake_label = 0.0
@@ -159,14 +218,16 @@ def main():
             # D_Y (EO)
             D_Y.zero_grad()
             out_real = D_Y(eo)
-            out_fake = D_Y(G(sar).detach())
+            fake_eo = G(sar)
+            out_fake = D_Y(fake_Y_pool.query(fake_eo.detach()))
             d_y_loss = 0.5 * (mse(out_real, torch.ones_like(out_real)) + mse(out_fake, torch.zeros_like(out_fake)))
             d_y_loss.backward()
             d_y_opt.step()
             # D_X (SAR)
             D_X.zero_grad()
             out_real = D_X(sar)
-            out_fake = D_X(F(eo).detach())
+            fake_sar = F(eo)
+            out_fake = D_X(fake_X_pool.query(fake_sar.detach()))
             d_x_loss = 0.5 * (mse(out_real, torch.ones_like(out_real)) + mse(out_fake, torch.zeros_like(out_fake)))
             d_x_loss.backward()
             d_x_opt.step()
@@ -190,6 +251,10 @@ def main():
         # Save samples and checkpoints
         save_samples(G, loader, device, os.path.join(args.out_dir, args.config), epoch)
         torch.save(G.state_dict(), os.path.join(args.out_dir, f'G_{args.config}_epoch{epoch+1}.pth'))
+        # Step learning rate schedulers
+        g_scheduler.step()
+        d_x_scheduler.step()
+        d_y_scheduler.step()
     print('Training complete.')
 
 if __name__ == '__main__':
