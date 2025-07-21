@@ -168,10 +168,11 @@ projectsubmission/
     (Batch size of 6 uses approx 13.9 GB GPU - Set batch size accordingly)
 
 
-![Sample Results](assets/sample results.png)
-![Sample Results](assets/sample results 2.png)
-![Cloud Mask](assets/cloud mask.png)
-![Loss ](assets/loss.png)
+![Sample Results](assets/sample%20results.png)
+![Sample Results 2](assets/sample%20results%202.png)
+![Cloud Mask](assets/cloud%20mask.png)
+![Loss](assets/loss.png)
+
 
 ### Key Findings or Observations
 - **Winter Challenges**: Snow and ice in winter-season data reduce contrast, making translation harder. Data augmentation (e.g., noise, rotations) improved robustness.
