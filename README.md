@@ -55,11 +55,12 @@ This implementation is inspired by research papers like "SAR-to-optical Image Tr
 - Additional libraries: `numpy`, `scikit-image`, `matplotlib`, `rasterio`, `h5py`
 - Hardware: GPU (NVIDIA recommended) for faster training
 
-### Setup
+## Raw Coded CycleGAN (Our own Architecture)
+### Setup 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/Kush2210/sar-to-eo-cyclegan.git
-   cd sar-to-eo-cyclegan
+   git clone https://github.com/Kush2210/CycleGAN-SAR_EO.git
+   cd Project1_SAR_to_EO
    ```
 
 2. **Install Dependencies**:
@@ -85,11 +86,10 @@ This implementation is inspired by research papers like "SAR-to-optical Image Tr
 5. **Train CycleGAN Models**:
    - Train models for each configuration (RGB, NIR/SWIR/Red Edge, RGB+NIR):
      ```bash
-     python train.py --config rgb --data_dir data/processed/ --output_dir results/rgb/
-     python train.py --config nir_swir_rededge --data_dir data/processed/ --output_dir results/nir_swir_rededge/
-     python train.py --config rgb_nir --data_dir data/processed/ --output_dir results/rgb_nir/
+        cd ..
+        python Project1_SAR_to_EO/train_cycleGAN.py --data_dir ./Project1_SAR_to_EO/data --config rgb --epochs 10 --out_dir ./Project1_SAR_to_EO/generated_samples --batch_size 12
      ```
-
+    (Batch size of 12 uses approx 11 GB GPU - Set batch size accordingly)
 6. **Evaluate and Visualize**:
    - Compute SSIM, PSNR, and NDVI metrics and visualize results:
      ```bash
@@ -131,6 +131,41 @@ projectsubmission/
   - **Discriminator**: PatchGAN discriminator for multi-spectral outputs.
   - **Loss Functions**: Cycle-consistency loss, adversarial loss, and identity loss, inspired by “SAR-to-optical Image Translation using Supervised Cycle-Consistent Adversarial Networks” (Wang et al., 2019).
 - Three models trained separately for RGB, NIR/SWIR/Red Edge, and RGB+NIR configurations.
+
+
+
+## Implementing Baseline Codebase : [CycleGAN & Pix2Pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+
+1. **Install Dependencies**:
+    cd Original_CycleGAN_Repo_Implementation/pytorch-CycleGAN-and-pix2pix-master
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. **Preprocess Data**:
+   - Run the preprocessing script
+    cd ..
+     ```bash
+     python preprocess.py 
+     ```
+
+3. **Train CycleGAN Models**:
+   - Train models for each configuration (RGB, NIR/SWIR/Red Edge, RGB+NIR):
+     ```bash
+        cd ..
+        !python train.py \
+            --dataroot /content/train_8000_unzipped/train_8000 \
+            --name sen12ms_cyclegan \
+            --model cycle_gan \
+            --input_nc 1 \
+            --output_nc 1 \
+            --epoch 3 \
+            --n_epochs_decay 15 \
+            --batch_size 6 \
+            --gpu_ids 0
+     ```
+     (Change path of your dataset folder accodingly)
+    (Batch size of 6 uses approx 13.9 GB GPU - Set batch size accordingly)
+
 
 ### Key Findings or Observations
 - **Winter Challenges**: Snow and ice in winter-season data reduce contrast, making translation harder. Data augmentation (e.g., noise, rotations) improved robustness.
