@@ -171,7 +171,6 @@ projectsubmission/
 
 ![Sample Results](assets/sample%20results.png)
 ![Sample Results 2](assets/sample%20results%202.png)
-![Cloud Mask](assets/cloud%20mask.png)
 ![Loss](assets/loss.png)
 
 
